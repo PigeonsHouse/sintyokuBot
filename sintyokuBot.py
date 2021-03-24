@@ -54,7 +54,6 @@ def addTask(userId, taskName):
         conn.commit()
     
 def addProgressTime(taskId, duration):
-    print(duration)
     with psycopg2.connect('postgresql://admin:admin@localhost:15432/admin') as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE progress_app.task SET duration=(duration+%s) WHERE id=%s", (duration, taskId))
