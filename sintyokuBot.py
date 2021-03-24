@@ -46,7 +46,7 @@ def addTask(userId, taskName):
             cur.execute("INSERT INTO progress_app.task (task_name, user_id, duration) VALUES (%s, %s, %s)", (taskName, userId, datetime.timedelta()))
             cur.execute("SELECT task_ids FROM progress_app.user WHERE id=%s", (userId, ))
             task_list = list(cur.fetchone()[0])
-            cur.execute("SELECT COUNT(*) FROM progress_app.task")
+            cur.execute("SELECT MAX(id) FROM progress_app.task")
             task_id = cur.fetchone()[0]
             task_list.append(task_id)
             cur.execute("UPDATE progress_app.user SET task_ids=%s WHERE id=%s", (task_list, userId))
@@ -54,11 +54,10 @@ def addTask(userId, taskName):
         conn.commit()
     
 def addProgressTime(taskId, duration):
+    print(duration)
     with psycopg2.connect('postgresql://admin:admin@localhost:15432/admin') as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT duration FROM progress_app.task WHERE id=%s", (taskId, ))
-            deltaDuration = cur.fetchone()[0]
-            cur.execute("UPDATE progress_app.task SET duration=duration+%s WHERE id=%s", (deltaDuration, taskId))
+            cur.execute("UPDATE progress_app.task SET duration=(duration+%s) WHERE id=%s", (duration, taskId))
         conn.commit()
 
 async def reportTheirProgress(channel):
