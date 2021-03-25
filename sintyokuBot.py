@@ -17,7 +17,6 @@ client = discord.Client()
 
 Data = []
 
-
 def searchGuild(guild_id):
     with psycopg2.connect('postgresql://admin:admin@localhost:15432/admin') as conn:
         with conn.cursor() as cur:
@@ -144,8 +143,8 @@ async def on_voice_state_update(member, before, after):
 
 @client.event
 async def on_message(message):
-    # if message.author.voice == None:
-    #     return
+    if message.author.voice == None:
+        return
     uid = message.author.id
     name = message.author.name
     content = message.content
@@ -187,10 +186,15 @@ async def on_message(message):
                 return
         await m_channel.send('<@!' + str(uid) + '>さんはまだ作業開始の宣言をしてないよ？\n何の作業をしてるか教えてね！')
 
-    if re.match(r'月が変わりました', content):
-        await reportTheirProgress()
+    # if re.match(r'月が変わりました', content):
+    #     await reportTheirProgress()
 
     if content == '<@!821046992460316733>':
         setNotifyChannel(message.guild, m_channel)
-    
-client.run(TOKEN)
+
+def RunBot():
+    try:
+        client.run(TOKEN)
+    except Exception as e:
+        print(e)
+        RunBot()
