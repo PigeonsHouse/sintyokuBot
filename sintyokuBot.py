@@ -112,6 +112,7 @@ async def reportTheirProgress():
                             task_info = cur.fetchone()
                             sendText = sendText + '\n【作業量】' + str(task_info[0]) + ': ' + str(task_info[1])
                         await channel.send(sendText)
+                cur.execute("UPDATE progress_app.guild SET user_ids=%s", ([], ))
             cur.execute("UPDATE progress_app.user SET task_ids=%s", ([], ))
             cur.execute("DELETE FROM progress_app.task")
         conn.commit()
@@ -143,13 +144,18 @@ async def on_voice_state_update(member, before, after):
 
 @client.event
 async def on_message(message):
-    if message.author.voice == None:
-        return
+    print(message)
     uid = message.author.id
     name = message.author.name
     content = message.content
     guild_id = message.guild.id
     m_channel = message.channel
+
+    if content == '<@!821046992460316733>':
+        setNotifyChannel(message.guild, m_channel)
+
+    if message.author.voice == None:
+        return
 
     if re.match(r'^「.+」をやります', content):
         task = content[content.find('「')+1:content.find('」')]
@@ -189,12 +195,11 @@ async def on_message(message):
     # if re.match(r'月が変わりました', content):
     #     await reportTheirProgress()
 
-    if content == '<@!821046992460316733>':
-        setNotifyChannel(message.guild, m_channel)
-
 def RunBot():
     try:
         client.run(TOKEN)
     except Exception as e:
         print(e)
         RunBot()
+
+RunBot()
