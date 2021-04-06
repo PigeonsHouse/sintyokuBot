@@ -17,6 +17,14 @@ client = discord.Client()
 
 Data = []
 
+def view(duration):
+    return_duration = str(duration)
+    seconds = str(int(duration / datetime.timedelta(seconds=1)) % 60).zfill(2)
+    minutes = str(int(duration / datetime.timedelta(minutes=1)) % 60).zfill(2)
+    hours   = int(duration / datetime.timedelta(hours=1)) % 60
+    return_duration = f"{hours}:{minutes}:{seconds}"
+    return return_duration
+
 def searchGuild(guild_id):
     with psycopg2.connect('postgresql://admin:admin@localhost:15432/admin') as conn:
         with conn.cursor() as cur:
@@ -106,11 +114,12 @@ async def reportTheirProgress():
                     cur.execute("SELECT task_ids FROM progress_app.user WHERE id=%s", (user_id, ))
                     task_list = list(cur.fetchone()[0])
                     if len(task_list):
-                        sendText = '<@!' + str(user_id) + '>さん'
+                        sendText = f'<@!{user_id}>さん'
                         for taskId in task_list:
                             cur.execute("SELECT task_name, duration FROM progress_app.task WHERE id=%s", (taskId, ))
                             task_info = cur.fetchone()
-                            sendText = sendText + '\n【作業量】' + str(task_info[0]) + ': ' + str(task_info[1])
+                            view_duration = view(task_info[1])
+                            sendText = f'{sendText}\n【{task_info[0]}】{view_duration}'
                         await channel.send(sendText)
                 cur.execute("UPDATE progress_app.guild SET user_ids=%s", ([], ))
             cur.execute("UPDATE progress_app.user SET task_ids=%s", ([], ))
@@ -126,7 +135,7 @@ async def on_ready():
     print('sintyokuBot is running')
     while True:
         nowTime = datetime.datetime.now()
-        if nowTime.strftime('%d-%H:%M:%S') == '01-00:00:00':
+        if nowTime.strftime('%d-%H:%M') == '01-00:00':
                 await reportTheirProgress()
         await asyncio.sleep(60)
 
@@ -137,42 +146,47 @@ async def on_voice_state_update(member, before, after):
         for data in Data:
             if data['user_id'] == uid:
                 duration = datetime.datetime.now() - datetime.datetime.fromisoformat(data['start_at'])
-                await data['channel'].send('<@!' + str(uid) + '>さん\nお疲れ様！頑張ったね！\n【作業量】' + data['task'] +': ' + str(duration))
+                task_name = data['task']
+                view_duration = view(duration)
+                await data['channel'].send(f"<@!{uid}>さん\nお疲れ様！頑張ったね！\n【{task_name}】{view_duration}")
                 addProgressTime(data['task_id'], duration)
                 Data.remove(data)
                 return
 
 @client.event
 async def on_message(message):
-    print(message)
     uid = message.author.id
     name = message.author.name
     content = message.content
     guild_id = message.guild.id
     m_channel = message.channel
 
-    if content == '<@!821046992460316733>':
+    if content == '!SET HERE':
         setNotifyChannel(message.guild, m_channel)
+        await m_channel.send('月頭報告をこのチャンネルでするね！')
 
     if message.author.voice == None:
         return
 
-    if re.match(r'^「.+」をやります', content):
-        task = content[content.find('「')+1:content.find('」')]
+    if re.match(r'^!DO .+', content):
+        task = content[3:]
+        if len(task) > 125:
+            await m_channel.send(f'<@!{uid}>さん\nタスク名が長すぎるよ！\n短くまとめて宣言し直してくれたら嬉しいなっ！')
+            return
         for data in Data:
             if data['user_id'] == uid:
                 if data['task'] == task:
-                    await m_channel.send('<@!' + str(uid) + '> さんが「' + task + '」をしてるのちゃんと見てるよ？\n応援してるよ！頑張ってね！')
+                    await m_channel.send(f'<@!{uid}> さんが「{task}」をしてるのちゃんと見てるよ？\n応援してるよ！頑張ってね！')
                     return
                 else:
-                    await m_channel.send('<@!' + str(uid) + '>さん\n作業を変更するときは一度終了してからもう一度宣言してね！')
+                    await m_channel.send(f'<@!{uid}>さん\n作業を変更するときは一度終了してからもう一度宣言してね！')
                     return
         if not searchGuild(guild_id):
             addGuild(message.guild, uid)
         if not (searchUser(uid) and searchGuildMember(guild_id, uid)):
             addUser(uid, name, guild_id)
         tid = searchTask(uid, task)
-        await m_channel.send('<@!' + str(uid) + '> さんは' + task + 'をやるんだね！\n今日も頑張ろう！')
+        await m_channel.send(f'<@!{uid}> さんは{task}をやるんだね！\n今日も頑張ろう！')
         Data.append({
             'user_id': uid,
             'name': name,
@@ -182,15 +196,17 @@ async def on_message(message):
             'channel': m_channel
         })
     
-    if re.match(r'^作業を終わります', content):
+    if content == '!END TASK':
         for data in Data:
             if data['user_id'] == uid:
                 duration = datetime.datetime.now() - datetime.datetime.fromisoformat(data['start_at'])
-                await m_channel.send('<@!' + str(uid) + '>さん\n了解だよ！お疲れ様！\n【作業量】' + data['task'] +': ' + str(duration))
+                task_name = data['task']
+                view_duration = view(duration)
+                await m_channel.send(f'<@!{uid}>さん\n了解だよ！お疲れ様！\n【{task_name}】{view_duration}')
                 addProgressTime(data['task_id'], duration)
                 Data.remove(data)
                 return
-        await m_channel.send('<@!' + str(uid) + '>さんはまだ作業開始の宣言をしてないよ？\n何の作業をしてるか教えてね！')
+        await m_channel.send(f'<@!{uid}>さんはまだ作業開始の宣言をしてないよ？\n何の作業をしてるか教えてね！')
 
     # if re.match(r'月が変わりました', content):
     #     await reportTheirProgress()
