@@ -169,7 +169,7 @@ async def on_message(message):
         return
 
     if re.match(r'^!DO .+', content):
-        task = content[3:]
+        task = content[4:]
         if len(task) > 125:
             await m_channel.send(f'<@!{uid}>さん\nタスク名が長すぎるよ！\n短くまとめて宣言し直してくれたら嬉しいなっ！')
             return
