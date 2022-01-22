@@ -9,3 +9,5 @@ services:
     environment: 
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
+    security_opt:
+      - seccomp=unconfined
